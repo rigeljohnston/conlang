@@ -1,0 +1,9 @@
+<file_path>
+GitHub\conlang\sample.txt
+</file_path>
+
+<edit_description>
+Create sample.txt in conlang project
+</edit_description>
+
+This is a sample text file created for the conlang project.
