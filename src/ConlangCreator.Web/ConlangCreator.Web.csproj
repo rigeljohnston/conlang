@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ConlangCreator.Core\ConlangCreator.Core.csproj" />
+    <ProjectReference Include="..\ConlangCreator.Engine\ConlangCreator.Engine.csproj" />
+    <ProjectReference Include="..\ConlangCreator.Data\ConlangCreator.Data.csproj" />
+  </ItemGroup>
+
+</Project>

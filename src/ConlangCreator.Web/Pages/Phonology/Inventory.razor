@@ -1,0 +1,293 @@
+@page "/phonology/inventory"
+@inject PhonologyService PhonologyService
+
+<div class="page-header">
+    <h1>Phoneme Inventory</h1>
+    <p>Select the sounds your language uses from the IPA charts</p>
+</div>
+
+<LanguageSelector SelectedLanguageId="@_languageId" OnSelected="OnLanguageSelected" />
+
+@if (_languageId > 0)
+{
+    <div class="card">
+        <div class="flex-between">
+            <h2>Consonants</h2>
+            <span class="text-muted">@_selectedConsonants.Count selected</span>
+        </div>
+
+        <div class="ipa-chart ipa-chart-consonants">
+            @* Header row: Places of articulation *@
+            <div class="ipa-cell header"></div>
+            @foreach (var place in _places)
+            {
+                <div class="ipa-cell header">@GetPlaceAbbrev(place)</div>
+            }
+
+            @* Data rows: Manners of articulation *@
+            @foreach (var manner in _manners)
+            {
+                <div class="ipa-cell row-header">@manner</div>
+                @foreach (var place in _places)
+                {
+                    var pair = GetConsonantPair(place, manner);
+                    @if (pair.voiceless is null && pair.voiced is null)
+                    {
+                        <div class="ipa-cell empty"></div>
+                    }
+                    else
+                    {
+                        <div class="ipa-cell" style="padding: 2px;">
+                            <div class="voiced-pair">
+                                @if (pair.voiceless is not null)
+                                {
+                                    var vl = pair.voiceless;
+                                    <span class="@(IsSelected(vl) ? "selected" : "")"
+                                          style="cursor:pointer; padding: 2px 4px; border-radius: 3px;"
+                                          @onclick="() => TogglePhoneme(vl, PhonemeType.Consonant, place, manner, false)">@vl</span>
+                                }
+                                @if (pair.voiced is not null)
+                                {
+                                    var vd = pair.voiced;
+                                    <span class="@(IsSelected(vd) ? "selected" : "")"
+                                          style="cursor:pointer; padding: 2px 4px; border-radius: 3px;"
+                                          @onclick="() => TogglePhoneme(vd, PhonemeType.Consonant, place, manner, true)">@vd</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            }
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="flex-between">
+            <h2>Vowels</h2>
+            <span class="text-muted">@_selectedVowels.Count selected</span>
+        </div>
+
+        <div class="ipa-chart ipa-chart-vowels">
+            @* Header row *@
+            <div class="ipa-cell header"></div>
+            <div class="ipa-cell header">Front</div>
+            <div class="ipa-cell header">Central</div>
+            <div class="ipa-cell header">Back</div>
+
+            @foreach (var height in _heights)
+            {
+                <div class="ipa-cell row-header">@height</div>
+                @foreach (var backness in _backnesses)
+                {
+                    var pair = GetVowelPair(height, backness);
+                    @if (pair.unrounded is null && pair.rounded is null)
+                    {
+                        <div class="ipa-cell empty"></div>
+                    }
+                    else
+                    {
+                        <div class="ipa-cell" style="padding: 2px;">
+                            <div class="voiced-pair">
+                                @if (pair.unrounded is not null)
+                                {
+                                    var ur = pair.unrounded;
+                                    <span class="@(IsSelected(ur) ? "selected" : "")"
+                                          style="cursor:pointer; padding: 2px 4px; border-radius: 3px;"
+                                          @onclick="() => TogglePhoneme(ur, PhonemeType.Vowel, height: height, backness: backness, rounded: false)">@ur</span>
+                                }
+                                @if (pair.rounded is not null)
+                                {
+                                    var r = pair.rounded;
+                                    <span class="@(IsSelected(r) ? "selected" : "")"
+                                          style="cursor:pointer; padding: 2px 4px; border-radius: 3px;"
+                                          @onclick="() => TogglePhoneme(r, PhonemeType.Vowel, height: height, backness: backness, rounded: true)">@r</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            }
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Selected Inventory</h2>
+        @if (_selectedConsonants.Count == 0 && _selectedVowels.Count == 0)
+        {
+            <p class="text-muted">Click phonemes in the charts above to build your inventory.</p>
+        }
+        else
+        {
+            @if (_selectedConsonants.Count > 0)
+            {
+                <h3>Consonants (@_selectedConsonants.Count)</h3>
+                <div class="tag-list mb-2">
+                    @foreach (var p in _selectedConsonants.OrderBy(p => p.IpaSymbol))
+                    {
+                        <span class="tag active">@p.IpaSymbol</span>
+                    }
+                </div>
+            }
+            @if (_selectedVowels.Count > 0)
+            {
+                <h3>Vowels (@_selectedVowels.Count)</h3>
+                <div class="tag-list">
+                    @foreach (var p in _selectedVowels.OrderBy(p => p.IpaSymbol))
+                    {
+                        <span class="tag active">@p.IpaSymbol</span>
+                    }
+                </div>
+            }
+        }
+    </div>
+}
+else
+{
+    <div class="empty-state">
+        <h2>Select a language</h2>
+        <p>Choose a language from the dropdown above, or create one from the <a href="/">Dashboard</a>.</p>
+    </div>
+}
+
+@code {
+    private int _languageId;
+    private List<Phoneme> _phonemes = [];
+    private List<Phoneme> _selectedConsonants => _phonemes.Where(p => p.Type == PhonemeType.Consonant).ToList();
+    private List<Phoneme> _selectedVowels => _phonemes.Where(p => p.Type == PhonemeType.Vowel).ToList();
+
+    // IPA chart layout data
+    private static readonly PlaceOfArticulation[] _places = Enum.GetValues<PlaceOfArticulation>();
+    private static readonly MannerOfArticulation[] _manners = Enum.GetValues<MannerOfArticulation>();
+    private static readonly VowelHeight[] _heights = Enum.GetValues<VowelHeight>();
+    private static readonly VowelBackness[] _backnesses = Enum.GetValues<VowelBackness>();
+
+    // Standard IPA consonant chart: (place, manner) -> (voiceless, voiced)
+    private static readonly Dictionary<(PlaceOfArticulation, MannerOfArticulation), (string? voiceless, string? voiced)> _consonantChart = new()
+    {
+        // Plosives
+        [(PlaceOfArticulation.Bilabial, MannerOfArticulation.Plosive)] = ("p", "b"),
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.Plosive)] = ("t", "d"),
+        [(PlaceOfArticulation.Retroflex, MannerOfArticulation.Plosive)] = ("ʈ", "ɖ"),
+        [(PlaceOfArticulation.Palatal, MannerOfArticulation.Plosive)] = ("c", "ɟ"),
+        [(PlaceOfArticulation.Velar, MannerOfArticulation.Plosive)] = ("k", "ɡ"),
+        [(PlaceOfArticulation.Uvular, MannerOfArticulation.Plosive)] = ("q", "ɢ"),
+        [(PlaceOfArticulation.Glottal, MannerOfArticulation.Plosive)] = ("ʔ", null),
+        // Nasals
+        [(PlaceOfArticulation.Bilabial, MannerOfArticulation.Nasal)] = (null, "m"),
+        [(PlaceOfArticulation.Labiodental, MannerOfArticulation.Nasal)] = (null, "ɱ"),
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.Nasal)] = (null, "n"),
+        [(PlaceOfArticulation.Retroflex, MannerOfArticulation.Nasal)] = (null, "ɳ"),
+        [(PlaceOfArticulation.Palatal, MannerOfArticulation.Nasal)] = (null, "ɲ"),
+        [(PlaceOfArticulation.Velar, MannerOfArticulation.Nasal)] = (null, "ŋ"),
+        [(PlaceOfArticulation.Uvular, MannerOfArticulation.Nasal)] = (null, "ɴ"),
+        // Trills
+        [(PlaceOfArticulation.Bilabial, MannerOfArticulation.Trill)] = (null, "ʙ"),
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.Trill)] = (null, "r"),
+        [(PlaceOfArticulation.Uvular, MannerOfArticulation.Trill)] = (null, "ʀ"),
+        // Taps/Flaps
+        [(PlaceOfArticulation.Labiodental, MannerOfArticulation.TapFlap)] = (null, "ⱱ"),
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.TapFlap)] = (null, "ɾ"),
+        [(PlaceOfArticulation.Retroflex, MannerOfArticulation.TapFlap)] = (null, "ɽ"),
+        // Fricatives
+        [(PlaceOfArticulation.Bilabial, MannerOfArticulation.Fricative)] = ("ɸ", "β"),
+        [(PlaceOfArticulation.Labiodental, MannerOfArticulation.Fricative)] = ("f", "v"),
+        [(PlaceOfArticulation.Dental, MannerOfArticulation.Fricative)] = ("θ", "ð"),
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.Fricative)] = ("s", "z"),
+        [(PlaceOfArticulation.Postalveolar, MannerOfArticulation.Fricative)] = ("ʃ", "ʒ"),
+        [(PlaceOfArticulation.Retroflex, MannerOfArticulation.Fricative)] = ("ʂ", "ʐ"),
+        [(PlaceOfArticulation.Palatal, MannerOfArticulation.Fricative)] = ("ç", "ʝ"),
+        [(PlaceOfArticulation.Velar, MannerOfArticulation.Fricative)] = ("x", "ɣ"),
+        [(PlaceOfArticulation.Uvular, MannerOfArticulation.Fricative)] = ("χ", "ʁ"),
+        [(PlaceOfArticulation.Pharyngeal, MannerOfArticulation.Fricative)] = ("ħ", "ʕ"),
+        [(PlaceOfArticulation.Glottal, MannerOfArticulation.Fricative)] = ("h", "ɦ"),
+        // Lateral Fricatives
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.LateralFricative)] = ("ɬ", "ɮ"),
+        // Approximants
+        [(PlaceOfArticulation.Labiodental, MannerOfArticulation.Approximant)] = (null, "ʋ"),
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.Approximant)] = (null, "ɹ"),
+        [(PlaceOfArticulation.Retroflex, MannerOfArticulation.Approximant)] = (null, "ɻ"),
+        [(PlaceOfArticulation.Palatal, MannerOfArticulation.Approximant)] = (null, "j"),
+        [(PlaceOfArticulation.Velar, MannerOfArticulation.Approximant)] = (null, "ɰ"),
+        // Lateral Approximants
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.LateralApproximant)] = (null, "l"),
+        [(PlaceOfArticulation.Retroflex, MannerOfArticulation.LateralApproximant)] = (null, "ɭ"),
+        [(PlaceOfArticulation.Palatal, MannerOfArticulation.LateralApproximant)] = (null, "ʎ"),
+        [(PlaceOfArticulation.Velar, MannerOfArticulation.LateralApproximant)] = (null, "ʟ"),
+        // Affricates (common ones)
+        [(PlaceOfArticulation.Alveolar, MannerOfArticulation.Affricate)] = ("t͡s", "d͡z"),
+        [(PlaceOfArticulation.Postalveolar, MannerOfArticulation.Affricate)] = ("t͡ʃ", "d͡ʒ"),
+    };
+
+    // Standard IPA vowel chart: (height, backness) -> (unrounded, rounded)
+    private static readonly Dictionary<(VowelHeight, VowelBackness), (string? unrounded, string? rounded)> _vowelChart = new()
+    {
+        [(VowelHeight.Close, VowelBackness.Front)] = ("i", "y"),
+        [(VowelHeight.Close, VowelBackness.Central)] = ("ɨ", "ʉ"),
+        [(VowelHeight.Close, VowelBackness.Back)] = ("ɯ", "u"),
+        [(VowelHeight.NearClose, VowelBackness.Front)] = ("ɪ", "ʏ"),
+        [(VowelHeight.NearClose, VowelBackness.Back)] = (null, "ʊ"),
+        [(VowelHeight.CloseMid, VowelBackness.Front)] = ("e", "ø"),
+        [(VowelHeight.CloseMid, VowelBackness.Central)] = ("ɘ", "ɵ"),
+        [(VowelHeight.CloseMid, VowelBackness.Back)] = ("ɤ", "o"),
+        [(VowelHeight.Mid, VowelBackness.Central)] = ("ə", null),
+        [(VowelHeight.OpenMid, VowelBackness.Front)] = ("ɛ", "œ"),
+        [(VowelHeight.OpenMid, VowelBackness.Central)] = ("ɜ", "ɞ"),
+        [(VowelHeight.OpenMid, VowelBackness.Back)] = ("ʌ", "ɔ"),
+        [(VowelHeight.NearOpen, VowelBackness.Front)] = ("æ", null),
+        [(VowelHeight.NearOpen, VowelBackness.Central)] = ("ɐ", null),
+        [(VowelHeight.Open, VowelBackness.Front)] = ("a", "ɶ"),
+        [(VowelHeight.Open, VowelBackness.Back)] = ("ɑ", "ɒ"),
+    };
+
+    private async Task OnLanguageSelected(int languageId)
+    {
+        _languageId = languageId;
+        if (languageId > 0)
+            _phonemes = await PhonologyService.GetPhonemesAsync(languageId);
+        else
+            _phonemes = [];
+    }
+
+    private bool IsSelected(string ipaSymbol) =>
+        _phonemes.Any(p => p.IpaSymbol == ipaSymbol);
+
+    private (string? voiceless, string? voiced) GetConsonantPair(PlaceOfArticulation place, MannerOfArticulation manner) =>
+        _consonantChart.GetValueOrDefault((place, manner));
+
+    private (string? unrounded, string? rounded) GetVowelPair(VowelHeight height, VowelBackness backness) =>
+        _vowelChart.GetValueOrDefault((height, backness));
+
+    private async Task TogglePhoneme(string ipaSymbol, PhonemeType type,
+        PlaceOfArticulation? place = null, MannerOfArticulation? manner = null, bool? voiced = null,
+        VowelHeight? height = null, VowelBackness? backness = null, bool? rounded = null)
+    {
+        var existing = _phonemes.FirstOrDefault(p => p.IpaSymbol == ipaSymbol);
+        if (existing is not null)
+        {
+            await PhonologyService.RemovePhonemeAsync(existing.Id);
+        }
+        else
+        {
+            await PhonologyService.AddPhonemeAsync(_languageId, ipaSymbol, type,
+                place: place, manner: manner, isVoiced: voiced,
+                height: height, backness: backness, isRounded: rounded);
+        }
+        _phonemes = await PhonologyService.GetPhonemesAsync(_languageId);
+    }
+
+    private string GetPlaceAbbrev(PlaceOfArticulation place) => place switch
+    {
+        PlaceOfArticulation.Bilabial => "Bilab",
+        PlaceOfArticulation.Labiodental => "Labdnt",
+        PlaceOfArticulation.Dental => "Dent",
+        PlaceOfArticulation.Alveolar => "Alv",
+        PlaceOfArticulation.Postalveolar => "PAlv",
+        PlaceOfArticulation.Retroflex => "Retro",
+        PlaceOfArticulation.Palatal => "Pal",
+        PlaceOfArticulation.Velar => "Vel",
+        PlaceOfArticulation.Uvular => "Uvu",
+        PlaceOfArticulation.Pharyngeal => "Phar",
+        PlaceOfArticulation.Glottal => "Glot",
+        _ => place.ToString()
+    };
+}

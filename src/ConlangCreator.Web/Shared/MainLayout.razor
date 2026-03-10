@@ -1,0 +1,59 @@
+@inherits LayoutComponentBase
+
+<div class="app-container">
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h1>Conlang Creator</h1>
+        </div>
+        <ul class="sidebar-nav">
+            <li>
+                <NavLink href="/" Match="NavLinkMatch.All">
+                    <span class="nav-icon">&#127968;</span> Dashboard
+                </NavLink>
+            </li>
+            <li class="nav-section">Phonology</li>
+            <li>
+                <NavLink href="/phonology/inventory">
+                    <span class="nav-icon">&#128264;</span> Phoneme Inventory
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/phonology/phonotactics">
+                    <span class="nav-icon">&#128296;</span> Phonotactics
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/phonology/rules">
+                    <span class="nav-icon">&#128260;</span> Sound Changes
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/phonology/romanization">
+                    <span class="nav-icon">&#9999;</span> Romanization
+                </NavLink>
+            </li>
+            <li class="nav-section">Morphology</li>
+            <li>
+                <NavLink href="/morphology" class="disabled-link">
+                    <span class="nav-icon">&#128300;</span> Coming Soon
+                </NavLink>
+            </li>
+            <li class="nav-section">Lexicon</li>
+            <li>
+                <NavLink href="/lexicon" class="disabled-link">
+                    <span class="nav-icon">&#128214;</span> Coming Soon
+                </NavLink>
+            </li>
+            <li class="nav-section">Syntax</li>
+            <li>
+                <NavLink href="/syntax" class="disabled-link">
+                    <span class="nav-icon">&#128466;</span> Coming Soon
+                </NavLink>
+            </li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        @Body
+    </main>
+</div>

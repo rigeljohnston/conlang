@@ -1,0 +1,184 @@
+@page "/phonology/phonotactics"
+@inject PhonologyService PhonologyService
+
+<div class="page-header">
+    <h1>Phonotactics</h1>
+    <p>Define syllable structures and constraints for your language</p>
+</div>
+
+<LanguageSelector SelectedLanguageId="@_languageId" OnSelected="OnLanguageSelected" />
+
+@if (_languageId > 0)
+{
+    <div class="card">
+        <div class="flex-between">
+            <h2>Syllable Templates</h2>
+            <button class="btn btn-primary btn-sm" @onclick="() => _showAdd = true">+ Add Template</button>
+        </div>
+
+        <p class="text-muted mb-2" style="font-size: 0.85rem;">
+            Use C for consonant, V for vowel. Parentheses for optional: (C)V(C) means onset and coda are optional.
+        </p>
+
+        @if (_showAdd)
+        {
+            <div style="background: var(--bg-primary); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem;">
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label>Template</label>
+                        <input class="form-control" @bind="_newTemplate" placeholder="e.g. (C)CV(C)" />
+                    </div>
+                    <div class="form-group">
+                        <label>Weight (frequency)</label>
+                        <input class="form-control" type="number" @bind="_newWeight" min="1" max="100" />
+                    </div>
+                    <div class="form-group">
+                        <label>Default?</label>
+                        <select class="form-control" @bind="_newIsDefault">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Allowed Onsets (comma-separated, leave blank for any)</label>
+                    <input class="form-control" @bind="_newOnsets" placeholder="e.g. st, sk, sp, tr, kr" />
+                </div>
+                <div class="form-group">
+                    <label>Allowed Codas (comma-separated, leave blank for any)</label>
+                    <input class="form-control" @bind="_newCodas" placeholder="e.g. nt, nk, st, lk" />
+                </div>
+                <div class="flex gap-1">
+                    <button class="btn btn-primary" @onclick="AddTemplate" disabled="@string.IsNullOrWhiteSpace(_newTemplate)">Add</button>
+                    <button class="btn" @onclick="CancelAdd">Cancel</button>
+                </div>
+            </div>
+        }
+
+        @if (_syllableRules.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No syllable templates defined yet.</p>
+                <p class="text-muted">Common starting points: CV, CVC, (C)V(C)</p>
+            </div>
+        }
+        else
+        {
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Template</th>
+                        <th>Weight</th>
+                        <th>Default</th>
+                        <th>Allowed Onsets</th>
+                        <th>Allowed Codas</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rule in _syllableRules)
+                    {
+                        <tr>
+                            <td style="font-family: monospace; font-size: 1.1rem; color: var(--accent);">@rule.Template</td>
+                            <td>@rule.Weight</td>
+                            <td>@(rule.IsDefault ? "Yes" : "")</td>
+                            <td class="text-muted" style="font-size: 0.85rem;">@(rule.AllowedOnsets ?? "any")</td>
+                            <td class="text-muted" style="font-size: 0.85rem;">@(rule.AllowedCodas ?? "any")</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" @onclick="() => RemoveTemplate(rule.Id)">Remove</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Quick Reference</h2>
+        <div class="grid-2">
+            <div>
+                <h3>Common Patterns</h3>
+                <table class="table">
+                    <tr><td style="font-family: monospace;">CV</td><td class="text-muted">Open syllables (Japanese-like)</td></tr>
+                    <tr><td style="font-family: monospace;">CVC</td><td class="text-muted">Closed syllables (Arabic-like)</td></tr>
+                    <tr><td style="font-family: monospace;">(C)V(C)</td><td class="text-muted">Flexible (most common cross-linguistically)</td></tr>
+                    <tr><td style="font-family: monospace;">CCVC</td><td class="text-muted">Allows consonant clusters in onset</td></tr>
+                    <tr><td style="font-family: monospace;">CVCC</td><td class="text-muted">Allows consonant clusters in coda</td></tr>
+                </table>
+            </div>
+            <div>
+                <h3>Notation</h3>
+                <table class="table">
+                    <tr><td style="font-family: monospace;">C</td><td class="text-muted">Any consonant</td></tr>
+                    <tr><td style="font-family: monospace;">V</td><td class="text-muted">Any vowel</td></tr>
+                    <tr><td style="font-family: monospace;">(X)</td><td class="text-muted">Optional element</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="empty-state">
+        <h2>Select a language</h2>
+        <p>Choose a language from the dropdown above, or create one from the <a href="/">Dashboard</a>.</p>
+    </div>
+}
+
+@code {
+    private int _languageId;
+    private List<SyllableRule> _syllableRules = [];
+
+    // Form state
+    private bool _showAdd;
+    private string _newTemplate = "";
+    private int _newWeight = 1;
+    private bool _newIsDefault;
+    private string? _newOnsets;
+    private string? _newCodas;
+
+    private async Task OnLanguageSelected(int languageId)
+    {
+        _languageId = languageId;
+        if (languageId > 0)
+            _syllableRules = await PhonologyService.GetSyllableRulesAsync(languageId);
+        else
+            _syllableRules = [];
+    }
+
+    private async Task AddTemplate()
+    {
+        if (string.IsNullOrWhiteSpace(_newTemplate)) return;
+
+        var rule = new SyllableRule
+        {
+            LanguageId = _languageId,
+            Template = _newTemplate.Trim(),
+            Weight = _newWeight,
+            IsDefault = _newIsDefault,
+            AllowedOnsets = string.IsNullOrWhiteSpace(_newOnsets) ? null : _newOnsets.Trim(),
+            AllowedCodas = string.IsNullOrWhiteSpace(_newCodas) ? null : _newCodas.Trim(),
+        };
+        await PhonologyService.AddSyllableRuleAsync(_languageId, rule.Template, rule.IsDefault, rule.Weight);
+
+        CancelAdd();
+        _syllableRules = await PhonologyService.GetSyllableRulesAsync(_languageId);
+    }
+
+    private void CancelAdd()
+    {
+        _showAdd = false;
+        _newTemplate = "";
+        _newWeight = 1;
+        _newIsDefault = false;
+        _newOnsets = null;
+        _newCodas = null;
+    }
+
+    private async Task RemoveTemplate(int id)
+    {
+        await PhonologyService.RemoveSyllableRuleAsync(id);
+        _syllableRules = await PhonologyService.GetSyllableRulesAsync(_languageId);
+    }
+}

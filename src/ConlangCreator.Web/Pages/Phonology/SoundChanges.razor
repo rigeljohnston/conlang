@@ -1,0 +1,229 @@
+@page "/phonology/rules"
+@inject PhonologyService PhonologyService
+
+<div class="page-header">
+    <h1>Sound Change Rules</h1>
+    <p>Define ordered phonological rules (allophony, assimilation, etc.)</p>
+</div>
+
+<LanguageSelector SelectedLanguageId="@_languageId" OnSelected="OnLanguageSelected" />
+
+@if (_languageId > 0)
+{
+    <div class="card">
+        <div class="flex-between">
+            <h2>Rules (applied in order)</h2>
+            <button class="btn btn-primary btn-sm" @onclick="() => _showAdd = true">+ Add Rule</button>
+        </div>
+
+        <p class="text-muted mb-2" style="font-size: 0.85rem;">
+            Rules are applied sequentially. Use standard notation for environments:
+            <span style="font-family: monospace;">_V</span> = before vowel,
+            <span style="font-family: monospace;">V_</span> = after vowel,
+            <span style="font-family: monospace;">#_</span> = word-initial,
+            <span style="font-family: monospace;">_#</span> = word-final.
+        </p>
+
+        @if (_showAdd)
+        {
+            <div style="background: var(--bg-primary); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem;">
+                <div class="form-group">
+                    <label>Rule Name</label>
+                    <input class="form-control" @bind="_newName" placeholder="e.g. Palatalization before front vowels" />
+                </div>
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label>Input (IPA)</label>
+                        <input class="form-control" @bind="_newInput" placeholder="e.g. k" />
+                    </div>
+                    <div class="form-group">
+                        <label>Output (IPA)</label>
+                        <input class="form-control" @bind="_newOutput" placeholder="e.g. t͡ʃ" />
+                    </div>
+                    <div class="form-group">
+                        <label>Environment</label>
+                        <input class="form-control" @bind="_newEnvironment" placeholder="e.g. _[i,e]" />
+                    </div>
+                </div>
+                <div class="flex gap-1">
+                    <button class="btn btn-primary" @onclick="AddRule"
+                            disabled="@(string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newInput) || string.IsNullOrWhiteSpace(_newOutput))">
+                        Add
+                    </button>
+                    <button class="btn" @onclick="CancelAdd">Cancel</button>
+                </div>
+            </div>
+        }
+
+        @if (_rules.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No sound change rules defined yet.</p>
+                <p class="text-muted">Add rules to define allophonic variation, assimilation, or historical sound changes.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Rule</th>
+                        <th>Environment</th>
+                        <th>Active</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rule in _rules)
+                    {
+                        <tr style="@(rule.IsActive ? "" : "opacity: 0.5;")">
+                            <td class="text-muted">@rule.Order</td>
+                            <td>@rule.Name</td>
+                            <td style="font-family: monospace; font-size: 1.05rem;">
+                                <span class="text-accent">@rule.Input</span>
+                                <span class="text-muted"> &rarr; </span>
+                                <span style="color: var(--success);">@rule.Output</span>
+                            </td>
+                            <td style="font-family: monospace;" class="text-muted">@(rule.Environment ?? "everywhere")</td>
+                            <td>
+                                <button class="btn btn-sm" @onclick="() => ToggleActive(rule)">
+                                    @(rule.IsActive ? "On" : "Off")
+                                </button>
+                            </td>
+                            <td>
+                                <div class="flex gap-1">
+                                    <button class="btn btn-sm" @onclick="() => MoveUp(rule)" disabled="@(rule.Order <= 1)">Up</button>
+                                    <button class="btn btn-sm" @onclick="() => MoveDown(rule)" disabled="@(rule.Order >= _rules.Count)">Dn</button>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => RemoveRule(rule.Id)">X</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Common Sound Changes</h2>
+        <table class="table">
+            <thead>
+                <tr><th>Name</th><th>Example</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Palatalization</td>
+                    <td style="font-family: monospace;">k &rarr; t͡ʃ / _[i,e]</td>
+                    <td class="text-muted">Velars become affricates before front vowels</td>
+                </tr>
+                <tr>
+                    <td>Final devoicing</td>
+                    <td style="font-family: monospace;">b,d,ɡ &rarr; p,t,k / _#</td>
+                    <td class="text-muted">Voiced stops become voiceless word-finally</td>
+                </tr>
+                <tr>
+                    <td>Intervocalic voicing</td>
+                    <td style="font-family: monospace;">p,t,k &rarr; b,d,ɡ / V_V</td>
+                    <td class="text-muted">Voiceless stops voice between vowels</td>
+                </tr>
+                <tr>
+                    <td>Nasal assimilation</td>
+                    <td style="font-family: monospace;">n &rarr; ŋ / _[k,ɡ]</td>
+                    <td class="text-muted">Nasals assimilate to following consonant's place</td>
+                </tr>
+                <tr>
+                    <td>Vowel nasalization</td>
+                    <td style="font-family: monospace;">V &rarr; V&#x0303; / _N</td>
+                    <td class="text-muted">Vowels become nasalized before nasals</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="empty-state">
+        <h2>Select a language</h2>
+        <p>Choose a language from the dropdown above, or create one from the <a href="/">Dashboard</a>.</p>
+    </div>
+}
+
+@code {
+    private int _languageId;
+    private List<PhonologicalRule> _rules = [];
+
+    private bool _showAdd;
+    private string _newName = "";
+    private string _newInput = "";
+    private string _newOutput = "";
+    private string? _newEnvironment;
+
+    private async Task OnLanguageSelected(int languageId)
+    {
+        _languageId = languageId;
+        if (languageId > 0)
+            _rules = await PhonologyService.GetPhonologicalRulesAsync(languageId);
+        else
+            _rules = [];
+    }
+
+    private async Task AddRule()
+    {
+        if (string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newInput) || string.IsNullOrWhiteSpace(_newOutput))
+            return;
+
+        await PhonologyService.AddPhonologicalRuleAsync(_languageId, _newName.Trim(),
+            _newInput.Trim(), _newOutput.Trim(), _newEnvironment?.Trim());
+
+        CancelAdd();
+        _rules = await PhonologyService.GetPhonologicalRulesAsync(_languageId);
+    }
+
+    private void CancelAdd()
+    {
+        _showAdd = false;
+        _newName = "";
+        _newInput = "";
+        _newOutput = "";
+        _newEnvironment = null;
+    }
+
+    private async Task ToggleActive(PhonologicalRule rule)
+    {
+        rule.IsActive = !rule.IsActive;
+        await PhonologyService.UpdatePhonologicalRuleAsync(rule);
+        _rules = await PhonologyService.GetPhonologicalRulesAsync(_languageId);
+    }
+
+    private async Task MoveUp(PhonologicalRule rule)
+    {
+        var ids = _rules.OrderBy(r => r.Order).Select(r => r.Id).ToList();
+        var idx = ids.IndexOf(rule.Id);
+        if (idx > 0)
+        {
+            (ids[idx], ids[idx - 1]) = (ids[idx - 1], ids[idx]);
+            await PhonologyService.ReorderPhonologicalRulesAsync(_languageId, ids);
+            _rules = await PhonologyService.GetPhonologicalRulesAsync(_languageId);
+        }
+    }
+
+    private async Task MoveDown(PhonologicalRule rule)
+    {
+        var ids = _rules.OrderBy(r => r.Order).Select(r => r.Id).ToList();
+        var idx = ids.IndexOf(rule.Id);
+        if (idx < ids.Count - 1)
+        {
+            (ids[idx], ids[idx + 1]) = (ids[idx + 1], ids[idx]);
+            await PhonologyService.ReorderPhonologicalRulesAsync(_languageId, ids);
+            _rules = await PhonologyService.GetPhonologicalRulesAsync(_languageId);
+        }
+    }
+
+    private async Task RemoveRule(int id)
+    {
+        await PhonologyService.RemovePhonologicalRuleAsync(id);
+        _rules = await PhonologyService.GetPhonologicalRulesAsync(_languageId);
+    }
+}

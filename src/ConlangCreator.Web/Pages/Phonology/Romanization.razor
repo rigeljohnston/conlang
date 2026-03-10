@@ -1,0 +1,199 @@
+@page "/phonology/romanization"
+@inject PhonologyService PhonologyService
+
+<div class="page-header">
+    <h1>Romanization</h1>
+    <p>Map each phoneme to its Latin-script representation</p>
+</div>
+
+<LanguageSelector SelectedLanguageId="@_languageId" OnSelected="OnLanguageSelected" />
+
+@if (_languageId > 0)
+{
+    @if (_phonemes.Count == 0)
+    {
+        <div class="empty-state">
+            <h2>No phonemes defined</h2>
+            <p>Add phonemes in the <a href="/phonology/inventory?lang=@_languageId">Phoneme Inventory</a> first, then come back to map them.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="flex-between">
+                <h2>Phoneme Mappings</h2>
+                <div class="flex gap-1">
+                    <button class="btn btn-sm" @onclick="AutoMap">Auto-Map (IPA = Romanization)</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveMappings">Save All</button>
+                </div>
+            </div>
+
+            <p class="text-muted mb-2" style="font-size: 0.85rem;">
+                Define how each IPA phoneme is written in your language's Latin-script orthography.
+            </p>
+
+            @if (_consonantPhonemes.Count > 0)
+            {
+                <h3>Consonants</h3>
+                <table class="table mb-2">
+                    <thead>
+                        <tr>
+                            <th>IPA</th>
+                            <th>Romanization</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var phoneme in _consonantPhonemes)
+                        {
+                            <tr>
+                                <td style="font-size: 1.2rem; font-family: monospace; color: var(--accent);">@phoneme.IpaSymbol</td>
+                                <td>
+                                    <input class="form-control" style="width: 120px; display: inline-block;"
+                                           value="@GetMapping(phoneme.Id)"
+                                           @onchange="e => SetMapping(phoneme.Id, e.Value?.ToString())" />
+                                </td>
+                                <td class="text-muted" style="font-size: 0.85rem;">
+                                    @GetPhonemeDescription(phoneme)
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (_vowelPhonemes.Count > 0)
+            {
+                <h3>Vowels</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>IPA</th>
+                            <th>Romanization</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var phoneme in _vowelPhonemes)
+                        {
+                            <tr>
+                                <td style="font-size: 1.2rem; font-family: monospace; color: var(--accent);">@phoneme.IpaSymbol</td>
+                                <td>
+                                    <input class="form-control" style="width: 120px; display: inline-block;"
+                                           value="@GetMapping(phoneme.Id)"
+                                           @onchange="e => SetMapping(phoneme.Id, e.Value?.ToString())" />
+                                </td>
+                                <td class="text-muted" style="font-size: 0.85rem;">
+                                    @GetPhonemeDescription(phoneme)
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        @if (_saved)
+        {
+            <div class="card" style="border-color: var(--success); background: rgba(76, 175, 80, 0.1);">
+                <p style="color: var(--success); margin: 0;">Romanization mappings saved.</p>
+            </div>
+        }
+    }
+}
+else
+{
+    <div class="empty-state">
+        <h2>Select a language</h2>
+        <p>Choose a language from the dropdown above, or create one from the <a href="/">Dashboard</a>.</p>
+    </div>
+}
+
+@code {
+    private int _languageId;
+    private List<Phoneme> _phonemes = [];
+    private List<Phoneme> _consonantPhonemes => _phonemes.Where(p => p.Type == PhonemeType.Consonant).ToList();
+    private List<Phoneme> _vowelPhonemes => _phonemes.Where(p => p.Type == PhonemeType.Vowel).ToList();
+    private Dictionary<int, string> _mappings = new();
+    private bool _saved;
+
+    private async Task OnLanguageSelected(int languageId)
+    {
+        _languageId = languageId;
+        _saved = false;
+        if (languageId > 0)
+        {
+            _phonemes = await PhonologyService.GetPhonemesAsync(languageId);
+            var existingMappings = await PhonologyService.GetRomanizationMappingsAsync(languageId);
+            _mappings = existingMappings
+                .Where(m => m.IsPrimary)
+                .ToDictionary(m => m.PhonemeId, m => m.Romanization);
+        }
+        else
+        {
+            _phonemes = [];
+            _mappings = new();
+        }
+    }
+
+    private string GetMapping(int phonemeId) =>
+        _mappings.TryGetValue(phonemeId, out var val) ? val : "";
+
+    private void SetMapping(int phonemeId, string? value)
+    {
+        _saved = false;
+        if (string.IsNullOrEmpty(value))
+            _mappings.Remove(phonemeId);
+        else
+            _mappings[phonemeId] = value;
+    }
+
+    private void AutoMap()
+    {
+        _saved = false;
+        foreach (var phoneme in _phonemes)
+        {
+            if (!_mappings.ContainsKey(phoneme.Id))
+                _mappings[phoneme.Id] = phoneme.IpaSymbol;
+        }
+    }
+
+    private async Task SaveMappings()
+    {
+        var mappingList = _mappings
+            .Where(kv => !string.IsNullOrEmpty(kv.Value))
+            .Select(kv => new RomanizationMapping
+            {
+                PhonemeId = kv.Key,
+                Romanization = kv.Value,
+                IsPrimary = true,
+            })
+            .ToList();
+
+        await PhonologyService.SetRomanizationMappingsAsync(_languageId, mappingList);
+        _saved = true;
+    }
+
+    private string GetPhonemeDescription(Phoneme p)
+    {
+        if (p.Type == PhonemeType.Consonant)
+        {
+            var parts = new List<string>();
+            if (p.IsVoiced == true) parts.Add("voiced");
+            else if (p.IsVoiced == false) parts.Add("voiceless");
+            if (p.Place.HasValue) parts.Add(p.Place.Value.ToString().ToLower());
+            if (p.Manner.HasValue) parts.Add(p.Manner.Value.ToString().ToLower());
+            return string.Join(" ", parts);
+        }
+        else
+        {
+            var parts = new List<string>();
+            if (p.Height.HasValue) parts.Add(p.Height.Value.ToString().ToLower());
+            if (p.Backness.HasValue) parts.Add(p.Backness.Value.ToString().ToLower());
+            if (p.IsRounded == true) parts.Add("rounded");
+            else if (p.IsRounded == false) parts.Add("unrounded");
+            parts.Add("vowel");
+            return string.Join(" ", parts);
+        }
+    }
+}

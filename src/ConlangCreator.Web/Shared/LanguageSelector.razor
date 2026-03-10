@@ -1,0 +1,52 @@
+@inject LanguageService LanguageService
+@inject NavigationManager Navigation
+
+<div class="flex-between mb-2">
+    <div class="flex gap-1" style="align-items: center;">
+        <label style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">LANGUAGE:</label>
+        <select class="form-control" style="width: auto; min-width: 200px;" value="@SelectedLanguageId" @onchange="OnLanguageChanged">
+            <option value="0">-- Select a language --</option>
+            @if (_languages is not null)
+            {
+                @foreach (var lang in _languages)
+                {
+                    <option value="@lang.Id">@lang.Name</option>
+                }
+            }
+        </select>
+    </div>
+    @if (SelectedLanguageId > 0)
+    {
+        <span class="badge badge-success">Active</span>
+    }
+</div>
+
+@code {
+    [Parameter] public int SelectedLanguageId { get; set; }
+    [Parameter] public EventCallback<int> OnSelected { get; set; }
+
+    private List<Language>? _languages;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _languages = await LanguageService.GetAllLanguagesAsync();
+
+        // Auto-select from query string
+        var uri = new Uri(Navigation.Uri);
+        var queryString = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (queryString.TryGetValue("lang", out var langVal) && int.TryParse(langVal, out var langId) && langId > 0)
+        {
+            SelectedLanguageId = langId;
+            await OnSelected.InvokeAsync(langId);
+        }
+    }
+
+    private async Task OnLanguageChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id))
+        {
+            SelectedLanguageId = id;
+            await OnSelected.InvokeAsync(id);
+        }
+    }
+}
