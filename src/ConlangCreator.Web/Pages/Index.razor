@@ -1,0 +1,108 @@
+@page "/"
+@inject LanguageService LanguageService
+
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Manage your constructed languages</p>
+</div>
+
+@if (_languages is null)
+{
+    <p class="text-muted">Loading...</p>
+}
+else
+{
+    <div class="flex-between mb-2">
+        <span class="text-muted">@_languages.Count language(s)</span>
+        <button class="btn btn-primary" @onclick="() => _showCreate = true">+ New Language</button>
+    </div>
+
+    @if (_showCreate)
+    {
+        <div class="card">
+            <h2>Create New Language</h2>
+            <div class="form-group">
+                <label>Name</label>
+                <input class="form-control" @bind="_newName" placeholder="e.g. Elvish, Klingon, Toki Pona..." />
+            </div>
+            <div class="form-group">
+                <label>Endonym (what the language calls itself)</label>
+                <input class="form-control" @bind="_newEndonym" placeholder="Optional" />
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input class="form-control" @bind="_newDescription" placeholder="Optional description..." />
+            </div>
+            <div class="flex gap-1">
+                <button class="btn btn-primary" @onclick="CreateLanguage" disabled="@string.IsNullOrWhiteSpace(_newName)">Create</button>
+                <button class="btn" @onclick="() => _showCreate = false">Cancel</button>
+            </div>
+        </div>
+    }
+
+    @if (_languages.Count == 0 && !_showCreate)
+    {
+        <div class="empty-state">
+            <h2>No languages yet</h2>
+            <p>Create your first constructed language to get started.</p>
+        </div>
+    }
+    else
+    {
+        <div class="grid-2">
+            @foreach (var lang in _languages)
+            {
+                <div class="card">
+                    <div class="flex-between">
+                        <div>
+                            <h2 style="margin-bottom: 0.25rem;">@lang.Name</h2>
+                            @if (!string.IsNullOrEmpty(lang.Endonym))
+                            {
+                                <span class="text-muted" style="font-style: italic;">@lang.Endonym</span>
+                            }
+                        </div>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteLanguage(lang.Id)">Delete</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(lang.Description))
+                    {
+                        <p class="text-muted mt-1" style="font-size: 0.85rem;">@lang.Description</p>
+                    }
+                    <div class="mt-1 flex gap-1">
+                        <a href="/phonology/inventory?lang=@lang.Id" class="btn btn-sm">Phonology</a>
+                    </div>
+                    <p class="text-muted mt-1" style="font-size: 0.75rem;">Updated @lang.UpdatedAt.ToString("MMM d, yyyy")</p>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<Language>? _languages;
+    private bool _showCreate;
+    private string _newName = "";
+    private string? _newEndonym;
+    private string? _newDescription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _languages = await LanguageService.GetAllLanguagesAsync();
+    }
+
+    private async Task CreateLanguage()
+    {
+        if (string.IsNullOrWhiteSpace(_newName)) return;
+        await LanguageService.CreateLanguageAsync(_newName.Trim(), _newDescription?.Trim(), _newEndonym?.Trim());
+        _newName = "";
+        _newEndonym = null;
+        _newDescription = null;
+        _showCreate = false;
+        _languages = await LanguageService.GetAllLanguagesAsync();
+    }
+
+    private async Task DeleteLanguage(int id)
+    {
+        await LanguageService.DeleteLanguageAsync(id);
+        _languages = await LanguageService.GetAllLanguagesAsync();
+    }
+}
